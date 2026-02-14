@@ -25,7 +25,7 @@ COPY static/ static/
 RUN mkdir -p /opt/data /opt/audio
 
 # Expose the application port
-EXPOSE 3000
+EXPOSE 5000
 
 # Set environment variables
 ENV FLASK_APP=app.py

@@ -1,0 +1,82 @@
+# Git files and directories
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python cache and compiled files
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+README.md
+README.txt
+LICENSE
+CHANGELOG.md
+docs/
+
+# Docker files (don't copy into image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.tox/
+.nox/
+
+# Distribution and packaging
+dist/
+build/
+*.egg-info/
+*.egg
+wheels/
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Optional: Exclude large data directories if not needed in container
+# Uncomment if you're mounting these as volumes instead
+# /opt/data/
+# /opt/audio/

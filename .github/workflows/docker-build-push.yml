@@ -103,3 +103,74 @@ jobs:
           echo ""
           echo "🔍 Inspect labels:"
           echo "docker inspect ${{ env.DOCKER_IMAGE }}:latest --format='{{json .Config.Labels}}' | jq"
+
+  # -------------------------------------------------------
+  # NEW: Deployment job — runs after build-and-push succeeds
+  # -------------------------------------------------------
+  deploy:
+    name: Deploy to EC2 via SSM
+    needs: build-and-push        # Only runs if build job succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Configure AWS credentials
+      # Requires these GitHub Secrets to be set:
+      #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+      #   AWS_SESSION_TOKEN (Learner Lab requires this),
+      #   AWS_REGION
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 2: Send deployment command to EC2 via SSM
+      # Requires this GitHub Secret:
+      #   EC2_INSTANCE_ID — your instance ID (e.g. i-0f6b4831c128c1c38)
+      #   DOCKER_USERNAME — your Docker Hub username
+      - name: Deploy to EC2 via SSM Run Command
+        id: ssm_deploy
+        run: |
+          # Send shell commands to EC2 through SSM — no SSH needed
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy cs6620-app from GitHub Actions run #${{ github.run_number }}" \
+            --parameters 'commands=[
+              "echo \"🚀 Starting deployment of cs6620-app...\"",
+              "docker pull ${{ secrets.DOCKER_USERNAME }}/cs6620-app:latest",
+              "docker stop cs6620-app || true",
+              "docker rm cs6620-app || true",
+              "docker run -d -p 80:5000 --name cs6620-app --restart unless-stopped ${{ secrets.DOCKER_USERNAME }}/cs6620-app:latest",
+              "echo \"✅ Deployment complete!\"",
+              "docker ps"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      # Step 3 (Optional): Wait and verify the command succeeded
+      - name: Verify deployment success
+        run: |
+          echo "Waiting 20 seconds for deployment to complete..."
+          sleep 20
+
+          # Check the status of the SSM command we sent
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "${{ steps.ssm_deploy.outputs.command_id }}" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
+
+          echo "Deployment status: $STATUS"
+
+          if [ "$STATUS" = "Success" ]; then
+            echo "✅ Deployment succeeded!"
+          else
+            echo "❌ Deployment status: $STATUS — check AWS Systems Manager > Run Command for logs"
+            exit 1
+          fi
